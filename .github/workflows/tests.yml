@@ -1,0 +1,48 @@
+name: Run Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # ----------------------------------------
+      # Swift toolchain (опционально)
+      # ----------------------------------------
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app
+
+      # ----------------------------------------
+      # Cache SPM
+      # ----------------------------------------
+      - name: Cache SwiftPM
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.swiftpm
+            .build
+          key: ${{ runner.os }}-spm-${{ hashFiles('**/Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-
+
+      # ----------------------------------------
+      # Build
+      # ----------------------------------------
+      - name: Build
+        run: swift build
+
+      # ----------------------------------------
+      # Tests
+      # ----------------------------------------
+      - name: Run tests
+        run: swift test --parallel
+        
