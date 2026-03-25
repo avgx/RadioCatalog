@@ -255,19 +255,6 @@ Stations are indexed with:
 * **Document frequencies** for BM25 ranking
 * **Country and language counts**
 
-
-```mermaid
-flowchart TD
-    A[StationIndex] --> B[nameIndex (prefix → UUIDs)]
-    A --> C[ngramIndex (ngram → UUIDs)]
-    A --> D[tagIndexes (genre/format/decade → UUIDs)]
-    B --> E[Candidate UUIDs after filters]
-    C --> E
-    D --> E
-    E --> F[Scoring Layer (BM25 + boosts + votes)]
-    F --> G[Sorted Results [Station]]
-````
-
 ```
                    ┌───────────────────────┐
                    │     StationIndex      │
