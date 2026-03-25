@@ -19,7 +19,7 @@ jobs:
 
       - name: Fetch stations
         run: |
-          curl -X GET "https://de2.api.radio-browser.info/json/stations?hidebroken=true&limit=100000&order=votes&reverse=true" | jq . > offline.json
+          curl -X GET "https://de2.api.radio-browser.info/json/stations?hidebroken=true&limit=100000&order=votes&reverse=true" > offline.json
 
       - name: Generate catalogs
         run: |
