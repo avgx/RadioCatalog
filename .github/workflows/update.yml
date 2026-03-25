@@ -7,6 +7,9 @@ on:
     - cron: "0 3 1 * *"  # 1 число каждого месяца UTC
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: macos-latest
@@ -107,7 +110,7 @@ jobs:
             stations-small.zip
             stations-medium.zip
             stations-large.zip
-          overwrite: true
+          overwrite_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
