@@ -35,5 +35,9 @@ let package = Package(
             dependencies: ["RadioCatalog"],
             resources: [.process("Resources")] // Ensure this is present
         ),
+        .testTarget(
+            name: "RadioCatalogIntegrationTests",
+            dependencies: ["RadioCatalog"],
+        )
     ]
 )

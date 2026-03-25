@@ -255,32 +255,18 @@ Stations are indexed with:
 * **Document frequencies** for BM25 ranking
 * **Country and language counts**
 
+
 ```mermaid
 flowchart TD
-    A[StationIndex] --> B[stations (UUID → Station)]
-    A --> C[nameIndex (prefix → Set<UUID>)]
-    A --> D[ngramIndex (ngram → Set<UUID>)]
-    A --> E[genresIndex (Genre → Set<UUID>)]
-    A --> F[formatsIndex (StationFormat → Set<UUID>)]
-    A --> G[decadesIndex (Decade → Set<UUID>)]
-    A --> H[countryCodeIndex (String → Set<UUID>)]
-    A --> I[languageIndex (String → Set<UUID>)]
-    A --> J[docLength (UUID → Int)]
-    A --> K[avgDocLength (Double)]
-    A --> L[documentFrequency (String → Int)]
-
-    C -->|prefix match| M[Candidate UUIDs]
-    D -->|ngram match| M
-    E -->|genre filter| M
-    F -->|format filter| M
-    G -->|decade filter| M
-    H -->|country filter| M
-    I -->|language filter| M
-
-    M --> N[Scoring: BM25 + boosts + votes]
-    N --> O[Sorted Station Results]
-```
-
+    A[StationIndex] --> B[nameIndex (prefix → UUIDs)]
+    A --> C[ngramIndex (ngram → UUIDs)]
+    A --> D[tagIndexes (genre/format/decade → UUIDs)]
+    B --> E[Candidate UUIDs after filters]
+    C --> E
+    D --> E
+    E --> F[Scoring Layer (BM25 + boosts + votes)]
+    F --> G[Sorted Results [Station]]
+````
 
 ```
                    ┌───────────────────────┐
@@ -320,3 +306,4 @@ flowchart TD
 ## Data Source
 
 RadioCatalog uses data fetched from [Radio Browser API](https://all.api.radio-browser.info/) with options to hide broken streams and limit results.
+
