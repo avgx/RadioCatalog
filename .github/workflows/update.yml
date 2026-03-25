@@ -2,8 +2,7 @@ name: Build Radio Catalog
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
   schedule:
     - cron: "0 3 1 * *"  # 1 число каждого месяца UTC
   workflow_dispatch:
@@ -11,33 +10,78 @@ on:
 jobs:
   build:
     runs-on: macos-latest
+
     steps:
       - uses: actions/checkout@v4
 
+      # ----------------------------------------
+      # DOWNLOAD
+      # ----------------------------------------
+      - name: Fetch stations
+        run: |
+          set -e
+
+          curl --compressed -f -L --retry 10 --retry-delay 3 \
+            "https://all.api.radio-browser.info/json/stations?hidebroken=true&limit=100000&order=votes&reverse=true" \
+            -o offline.json
+
+      # ----------------------------------------
+      # VALIDATION
+      # ----------------------------------------
+      - name: Validate JSON (jq)
+        run: |
+          set -e
+          jq empty offline.json
+
+      - name: Validate JSON structure
+        run: |
+          set -e
+          TYPE=$(jq -r 'type' offline.json)
+          if [ "$TYPE" != "array" ]; then
+            echo "Invalid JSON root: $TYPE"
+            exit 1
+          fi
+
+      - name: Validate size
+        run: |
+          set -e
+          SIZE=$(wc -c < offline.json)
+          echo "Size: $SIZE"
+
+          if [ "$SIZE" -lt 1000000 ]; then
+            echo "Dataset too small"
+            exit 1
+          fi
+
+      # ----------------------------------------
+      # BUILD
+      # ----------------------------------------
       - name: Build tool
         run: swift build -c release --product radiocatalog-builder
 
-      - name: Fetch stations
-        run: |
-          curl -i -f -L --retry 5 --retry-delay 2  "https://all.api.radio-browser.info/json/stations?hidebroken=true&limit=100000&order=votes&reverse=true" -o offline.json
-
       - name: Generate catalogs
         run: |
+          set -e
           .build/release/radiocatalog-builder offline.json stations
 
       - name: Zip results
         run: |
-          zip stations-small.zip stations-small.json
-          zip stations-medium.zip stations-medium.json
-          zip stations-large.zip stations-large.json
+          set -e
+          zip -q stations-small.zip stations-small.json
+          zip -q stations-medium.zip stations-medium.json
+          zip -q stations-large.zip stations-large.json
 
+      # ----------------------------------------
+      # VERSION
+      # ----------------------------------------
       - name: Set date tag
-        id: vars
         run: |
-          DATE_TAG=$(date +'%Y%m')
-          echo "RELEASE_TAG=$DATE_TAG" >> $GITHUB_ENV
+          echo "RELEASE_TAG=$(date +'%Y%m')" >> $GITHUB_ENV
 
-      - name: Create latest Release
+      # ----------------------------------------
+      # RELEASE: latest (always overwrite)
+      # ----------------------------------------
+      - name: Create latest release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
@@ -47,18 +91,25 @@ jobs:
             stations-medium.zip
             stations-large.zip
           overwrite: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Check if YYYYMM tag exists
+      # ----------------------------------------
+      # RELEASE: YYYYMM (idempotent)
+      # ----------------------------------------
+      - name: Check if YYYYMM exists
         id: check_tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if gh release view ${{ env.RELEASE_TAG }} &>/dev/null; then
-            echo "EXISTS=true" >> $GITHUB_ENV
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
           else
-            echo "EXISTS=false" >> $GITHUB_ENV
+            echo "exists=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Create YYYYMM Release
-        if: env.EXISTS == 'false'
+      - name: Create YYYYMM release
+        if: steps.check_tag.outputs.exists == 'false'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.RELEASE_TAG }}
@@ -67,15 +118,33 @@ jobs:
             stations-small.zip
             stations-medium.zip
             stations-large.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # ----------------------------------------
+      # CLEANUP (correct month diff)
+      # ----------------------------------------
       - name: Delete old YYYYMM releases (keep 12 months)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          for tag in $(gh release list --limit 100 --json tagName -q '.[].tagName'); do
+          set -e
+
+          current=$(date +%Y)
+          current_month=$(date +%m)
+
+          gh release list --limit 100 --json tagName -q '.[].tagName' | while read tag; do
             if [[ $tag =~ ^[0-9]{6}$ ]]; then
-              month_diff=$(( $(date +%Y%m) - $tag ))
-              if [ $month_diff -gt 12 ]; then
-                echo "Deleting old release $tag"
-                gh release delete $tag -y
+
+              year=${tag:0:4}
+              month=${tag:4:2}
+
+              diff=$(( (current - year) * 12 + (10#$current_month - 10#$month) ))
+
+              if [ $diff -gt 12 ]; then
+                echo "Deleting $tag (age $diff months)"
+                gh release delete "$tag" -y
               fi
             fi
           done
+
