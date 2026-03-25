@@ -17,14 +17,31 @@ jobs:
       # ----------------------------------------
       # DOWNLOAD
       # ----------------------------------------
-      - name: Fetch stations
+      - name: Fetch stations (with fallback)
         run: |
           set -e
 
-          curl --compressed -f -L --retry 10 --retry-delay 3 \
-            "https://all.api.radio-browser.info/json/stations?hidebroken=true&limit=100000&order=votes&reverse=true" \
-            -o offline.json
+          URLS=(
+            "https://all.api.radio-browser.info/json/stations?hidebroken=true&limit=100000&order=votes&reverse=true"
+            "https://de1.api.radio-browser.info/json/stations?hidebroken=true&limit=100000&order=votes&reverse=true"
+            "https://de2.api.radio-browser.info/json/stations?hidebroken=true&limit=100000&order=votes&reverse=true"
+            "https://nl1.api.radio-browser.info/json/stations?hidebroken=true&limit=100000&order=votes&reverse=true"
+          )
 
+          for url in "${URLS[@]}"; do
+            echo "Trying $url"
+
+            if curl --compressed -f -L --retry 5 --retry-delay 2 --retry-all-errors --connect-timeout 5 --max-time 60 "$url" -o offline.json; then
+              echo "Success from $url"
+              exit 0
+            fi
+
+            echo "Failed: $url"
+          done
+
+          echo "All endpoints failed"
+          exit 1
+    
       # ----------------------------------------
       # VALIDATION
       # ----------------------------------------
