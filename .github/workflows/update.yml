@@ -1,0 +1,81 @@
+name: Build Radio Catalog
+
+on:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: "0 3 1 * *"  # 1 число каждого месяца UTC
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build tool
+        run: swift build -c release --product radiocatalog-builder
+
+      - name: Fetch stations
+        run: |
+          curl -X GET "https://de2.api.radio-browser.info/json/stations?hidebroken=true&limit=100000&order=votes&reverse=true" | jq . > offline.json
+
+      - name: Generate catalogs
+        run: |
+          .build/release/radiocatalog-builder offline.json stations
+
+      - name: Zip results
+        run: |
+          zip stations-small.zip stations-small.json
+          zip stations-medium.zip stations-medium.json
+          zip stations-large.zip stations-large.json
+
+      - name: Set date tag
+        id: vars
+        run: |
+          DATE_TAG=$(date +'%Y%m')
+          echo "RELEASE_TAG=$DATE_TAG" >> $GITHUB_ENV
+
+      - name: Create latest Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: latest
+          files: |
+            stations-small.zip
+            stations-medium.zip
+            stations-large.zip
+          overwrite: true
+
+      - name: Check if YYYYMM tag exists
+        id: check_tag
+        run: |
+          if gh release view ${{ env.RELEASE_TAG }} &>/dev/null; then
+            echo "EXISTS=true" >> $GITHUB_ENV
+          else
+            echo "EXISTS=false" >> $GITHUB_ENV
+          fi
+
+      - name: Create YYYYMM Release
+        if: env.EXISTS == 'false'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: ${{ env.RELEASE_TAG }}
+          files: |
+            stations-small.zip
+            stations-medium.zip
+            stations-large.zip
+
+      - name: Delete old YYYYMM releases (keep 12 months)
+        run: |
+          for tag in $(gh release list --limit 100 --json tagName -q '.[].tagName'); do
+            if [[ $tag =~ ^[0-9]{6}$ ]]; then
+              month_diff=$(( $(date +%Y%m) - $tag ))
+              if [ $month_diff -gt 12 ]; then
+                echo "Deleting old release $tag"
+                gh release delete $tag -y
+              fi
+            fi
+          done
