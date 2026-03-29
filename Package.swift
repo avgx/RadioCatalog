@@ -12,10 +12,12 @@ let package = Package(
     ],
     products: [
         .library( name: "RadioCatalog", targets: ["RadioCatalog"] ),
-        .executable(name: "radiocatalog-builder", targets: ["RadioCatalogBuilder"])
+        .executable(name: "radiocatalog-builder", targets: ["RadioCatalogBuilder"]),
+        .executable(name: "topradiocatalog-builder", targets: ["TopRadioCatalogBuilder"])
     ],
     dependencies: [
-        .package(url: "https://github.com/weichsel/ZIPFoundation.git", .upToNextMajor(from: "0.9.0"))
+        .package(url: "https://github.com/weichsel/ZIPFoundation.git", .upToNextMajor(from: "0.9.0")),
+        .package(url: "https://github.com/scinfu/SwiftSoup.git", from: "2.6.0")
     ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
@@ -29,6 +31,13 @@ let package = Package(
         .executableTarget(
             name: "RadioCatalogBuilder",
             dependencies: ["RadioCatalog"]
+        ),
+        .executableTarget(
+            name: "TopRadioCatalogBuilder",
+            dependencies: [
+                "RadioCatalog",
+                .product(name: "SwiftSoup", package: "SwiftSoup")
+            ]
         ),
         .testTarget(
             name: "RadioCatalogTests",
