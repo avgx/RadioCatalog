@@ -5,7 +5,7 @@ import SwiftSoup
 
 final class CountryParser {
     
-    func parseCountries(html: String, baseURL: URL) -> [Country] {
+    func parseCountries(html: String) -> [Country] {
         do {
             let doc = try SwiftSoup.parse(html)
             
@@ -20,13 +20,13 @@ final class CountryParser {
                 
                 guard !href.isEmpty, !title.isEmpty else { continue }
                 
-                // ❗ фильтр: исключаем "Все радио"
-                if href == "web" {
+                // фильтр
+                if !["rossiya", "belarus", "kazaxstan"].contains(href) {
                     continue
                 }
                 
                 let slug = extractSlug(from: href)
-                let url = makeAbsolute(href, baseURL: baseURL)
+                let url = URL.makeAbsolute(href)
                 
                 result.append(
                     Country(
@@ -55,10 +55,4 @@ final class CountryParser {
             .map(String.init) ?? href
     }
     
-    private func makeAbsolute(_ href: String, baseURL: URL) -> String {
-        if href.hasPrefix("http") {
-            return href
-        }
-        return baseURL.appendingPathComponent(href).absoluteString
-    }
 }

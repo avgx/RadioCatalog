@@ -1,11 +1,3 @@
-//
-//  CountryPageParser.swift
-//  RadioCatalog
-//
-//  Created by Alexey Govorovsky on 28.03.2026.
-//
-
-
 import Foundation
 import SwiftSoup
 
@@ -13,12 +5,12 @@ import SwiftSoup
 
 final class CountryPageParser {
     
-    func parse(html: String, country: Country, baseURL: URL) -> (cities: [City], stations: [StationRef]) {
+    func parse(html: String, country: Country) -> (cities: [City], stations: [StationRef]) {
         do {
             let doc = try SwiftSoup.parse(html)
             
-            let cities = try parseCities(doc: doc, country: country, baseURL: baseURL)
-            let stations = try parseStations(doc: doc, country: country, baseURL: baseURL)
+            let cities = try parseCities(doc: doc, country: country)
+            let stations = try parseStations(doc: doc, country: country)
             
             return (cities, stations)
             
@@ -31,7 +23,7 @@ final class CountryPageParser {
 
 private extension CountryPageParser {
     
-    func parseCities(doc: Document, country: Country, baseURL: URL) throws -> [City] {
+    func parseCities(doc: Document, country: Country) throws -> [City] {
         let items = try doc.select("ul.threecolumn li")
         
         var result: [City] = []
@@ -47,7 +39,7 @@ private extension CountryPageParser {
             let count = extractCount(countText)
             
             let slug = extractSlug(from: href)
-            let url = makeAbsolute(href, baseURL: baseURL)
+            let url = URL.makeAbsolute(href)
             
             result.append(
                 City(
@@ -75,7 +67,7 @@ private extension CountryPageParser {
 
 private extension CountryPageParser {
     
-    func parseStations(doc: Document, country: Country, baseURL: URL) throws -> [StationRef] {
+    func parseStations(doc: Document, country: Country) throws -> [StationRef] {
         let items = try doc.select("ul.catalog li")
         
         var result: [StationRef] = []
@@ -90,7 +82,7 @@ private extension CountryPageParser {
             let title = try link.select("p").text()
             
             let slug = extractSlug(from: href)   // marusya-fm
-            let url = makeAbsolute(href, baseURL: baseURL)
+            let url = URL.makeAbsolute(href)
             
             // id лежит в checkbox value
             let id = try item.select("input[type=checkbox]").attr("value")
@@ -118,12 +110,5 @@ private extension CountryPageParser {
             .split(separator: "/")
             .last
             .map(String.init) ?? href
-    }
-    
-    func makeAbsolute(_ href: String, baseURL: URL) -> String {
-        if href.hasPrefix("http") {
-            return href
-        }
-        return baseURL.appendingPathComponent(href).absoluteString
-    }
+    }    
 }

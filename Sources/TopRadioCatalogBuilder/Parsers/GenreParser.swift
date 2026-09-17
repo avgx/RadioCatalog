@@ -3,7 +3,7 @@ import SwiftSoup
 
 final class GenreParser {
     
-    func parseGenres(html: String, baseURL: URL) -> [Genre] {
+    func parseGenres(html: String) -> [Genre] {
         do {
             let doc = try SwiftSoup.parse(html)
             
@@ -20,7 +20,7 @@ final class GenreParser {
                 guard !href.isEmpty, !title.isEmpty else { continue }
                 
                 let slug = extractSlug(from: href)
-                let url = makeAbsolute(href, baseURL: baseURL)
+                let url = URL.makeAbsolute(href)
                 
                 result.append(
                     Genre(
@@ -47,12 +47,5 @@ final class GenreParser {
             .split(separator: "/")
             .last
             .map(String.init) ?? href
-    }
-    
-    private func makeAbsolute(_ href: String, baseURL: URL) -> String {
-        if href.hasPrefix("http") {
-            return href
-        }
-        return baseURL.appendingPathComponent(href).absoluteString
-    }
+    }    
 }

@@ -3,7 +3,7 @@ import SwiftSoup
 
 final class CityPageParser {
     
-    func parse(html: String, baseURL: URL, citySlug: String) -> [CityStationRef] {
+    func parse(html: String, citySlug: String) -> [CityStationRef] {
         do {
             let doc = try SwiftSoup.parse(html)
             let rows = try doc.select("table.stations-list tr")
@@ -27,7 +27,7 @@ final class CityPageParser {
                 
                 let href = try link.attr("href") // rostov-na-donu/nashe
                 let stationSlug = extractStationSlug(from: href)
-                let url = makeAbsolute(href, baseURL: baseURL)
+                let url = URL.makeAbsolute(href)
                 
                 let title = try nameEl.text()
                 
@@ -63,12 +63,6 @@ private extension CityPageParser {
             .map(String.init) ?? href
     }
     
-    func makeAbsolute(_ href: String, baseURL: URL) -> String {
-        if href.hasPrefix("http") {
-            return href
-        }
-        return baseURL.appendingPathComponent(href).absoluteString
-    }
 }
 
 private extension String {

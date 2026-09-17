@@ -5,8 +5,7 @@ final class GenreStationsParser {
     
     func parseStations(
         html: String,
-        genre: Genre,
-        baseURL: URL
+        genre: Genre
     ) -> [StationRef] {
         
         do {
@@ -26,7 +25,7 @@ final class GenreStationsParser {
                 guard !href.isEmpty else { continue }
                 
                 let slug = extractSlug(from: href)
-                let url = makeAbsolute(href, baseURL: baseURL)
+                let url = URL.makeAbsolute(href)
                 
                 result.append(
                     StationRef(
@@ -56,12 +55,5 @@ final class GenreStationsParser {
             .split(separator: "/")
             .last
             .map(String.init) ?? href
-    }
-    
-    private func makeAbsolute(_ href: String, baseURL: URL) -> String {
-        if href.hasPrefix("http") {
-            return href
-        }
-        return baseURL.appendingPathComponent(href).absoluteString
     }
 }

@@ -5,6 +5,73 @@ final class WebStationParser {
     
     func parseStation(html: String, fileURL: URL) -> WebStation? {
         do {
+            let doc = try SwiftSoup.parse(html)
+            
+            guard let root = try doc.select("div.radio-station").first() else {
+                return nil
+            }
+            
+            let slug = fileURL.lastPathComponent
+            
+            // title
+            let title = try root
+                .select("h1[itemprop=name]")
+                .first()?
+                .text() ?? slug
+            
+            // image
+            let image = try root
+                .select("img[itemprop=image]")
+                .first()?
+                .attr("src")
+            
+            // genres
+            let genres = try root
+                .select("p.genres a")
+                .array()
+                .map { try $0.text() }
+            
+            // country
+            let country = try root
+                .select("p:has(span:contains(Страна)) a")
+                .first()?
+                .text()
+            
+            // homepage (ТОЛЬКО если реально есть ссылка)
+            let homepage = try doc
+                .select(".contact-info-radio a[href]")
+                .first()?
+                .attr("href")
+            
+            // rating
+            let rating = try root
+                .select("[itemprop=ratingValue]")
+                .first()?
+                .text()
+            
+            // STREAMS (главное)
+            let streams = StreamsParser().extractStreams(html)
+            
+            return WebStation(
+                slug: slug,
+                url: fileURL,
+                title: title,
+                country: country,
+                genres: genres,
+                homepage: homepage.flatMap(URL.init),
+                rating: rating,
+                image: image.flatMap { makeAbsolute($0) },
+                streams: streams
+            )
+            
+        } catch {
+            print("❌ parse error \(fileURL.lastPathComponent): \(error)")
+            return nil
+        }
+    }
+    
+    func parseStation1(html: String, fileURL: URL) -> WebStation? {
+        do {
             print("\(fileURL.absoluteString)")
             let doc = try SwiftSoup.parse(html)
             
@@ -73,7 +140,7 @@ final class WebStationParser {
                 genres: genres,
                 homepage: homepage.flatMap(URL.init),
                 rating: rating,
-                image: image.flatMap { makeAbsolute($0, slug: slug) },
+                image: image.flatMap { makeAbsolute1($0, slug: slug) },
                 streams: streams
             )
             
@@ -87,7 +154,14 @@ final class WebStationParser {
     
     // MARK: - Helpers
     
-    private func makeAbsolute(_ path: String, slug: String) -> URL? {
+    private func makeAbsolute(_ path: String) -> URL? {
+        if path.hasPrefix("http") {
+            return URL(string: path)
+        }
+        return URL(string: "https://top-radio.ru/\(path)")
+    }
+    
+    private func makeAbsolute1(_ path: String, slug: String) -> URL? {
         if path.hasPrefix("http") {
             return URL(string: path)
         }

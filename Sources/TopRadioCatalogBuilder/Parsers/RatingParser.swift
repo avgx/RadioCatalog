@@ -3,7 +3,7 @@ import SwiftSoup
 
 final class RatingParser {
     
-    func parse(html: String, baseURL: URL) -> [RatingEntry] {
+    func parse(html: String) -> [RatingEntry] {
         do {
             let doc = try SwiftSoup.parse(html)
             
@@ -20,7 +20,7 @@ final class RatingParser {
                 }
                 
                 guard
-                    let link = try row.select("a[href^=web/]").first()
+                    let link = try row.select("a").first()
                 else {
                     continue
                 }
@@ -29,7 +29,7 @@ final class RatingParser {
                 let title = link.ownText().trimmingCharacters(in: .whitespacesAndNewlines)
                 
                 let slug = extractSlug(from: href)
-                let url = makeAbsolute(href, baseURL: baseURL)
+                let url = URL.makeAbsolute(href)
                 
                 let positionText = try row.select(".top").text()
                 let position = Int(positionText) ?? 0
@@ -56,13 +56,13 @@ final class RatingParser {
         }
     }
     
-    func parseAjaxPage(_ html: String, baseURL: URL) -> [RatingEntry] {
+    func parseAjaxPage(_ html: String) -> [RatingEntry] {
         do {
             let doc = try SwiftSoup.parseBodyFragment(html)
             let rows = try doc.select("li")
             
             return try rows.compactMap {
-                try parseRatingItem($0, baseURL: baseURL)
+                try parseRatingItem($0)
             }
             
         } catch {
@@ -71,15 +71,15 @@ final class RatingParser {
         }
     }
     
-    func parseRatingItem(_ row: Element, baseURL: URL) throws -> RatingEntry? {
+    func parseRatingItem(_ row: Element) throws -> RatingEntry? {
         
-        guard let link = try row.select("a[href^=web/]").first() else {
+        guard let link = try row.select("a").first() else {
             return nil
         }
         
         let href = try link.attr("href")
         let slug = extractSlug(from: href)
-        let url = makeAbsolute(href, baseURL: baseURL)
+        let url = URL.makeAbsolute(href)
         
         let title = link.ownText().trimmingCharacters(in: .whitespacesAndNewlines)
         
@@ -107,11 +107,5 @@ private extension RatingParser {
             .map(String.init) ?? href
     }
     
-    func makeAbsolute(_ href: String, baseURL: URL) -> String {
-        if href.hasPrefix("http") {
-            return href
-        }
-        return baseURL.appendingPathComponent(href).absoluteString
-    }
 }
 
