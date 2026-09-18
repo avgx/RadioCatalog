@@ -44,5 +44,5 @@ jobs:
       # Tests
       # ----------------------------------------
       - name: Run tests
-        run: swift test --parallel --filter RadioCatalogTests
+        run: swift test --parallel --filter RadioCatalogTests --filter TopRadioCatalogTests
         

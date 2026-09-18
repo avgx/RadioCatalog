@@ -11,17 +11,24 @@ let package = Package(
         .macOS(.v14)
     ],
     products: [
-        .library( name: "RadioCatalog", targets: ["RadioCatalog"] ),
-        .executable(name: "radiocatalog-builder", targets: ["RadioCatalogBuilder"])
+        .library(name: "RadioCatalog", targets: ["RadioCatalog"]),
+        .library(name: "TopRadioCatalog", targets: ["TopRadioCatalog"]),
+        .executable(name: "radiocatalog-builder", targets: ["RadioCatalogBuilder"]),
+        .executable(name: "topradiocatalog-builder", targets: ["TopRadioCatalogBuilder"])
     ],
     dependencies: [
-        .package(url: "https://github.com/weichsel/ZIPFoundation.git", .upToNextMajor(from: "0.9.0"))
+        .package(url: "https://github.com/weichsel/ZIPFoundation.git", .upToNextMajor(from: "0.9.0")),
+        .package(url: "https://github.com/scinfu/SwiftSoup.git", from: "2.6.0")
     ],
     targets: [
-        // Targets are the basic building blocks of a package, defining a module or a test suite.
-        // Targets can depend on other targets in this package and products from dependencies.
         .target(
             name: "RadioCatalog",
+            dependencies: [
+                "ZIPFoundation"
+            ]
+        ),
+        .target(
+            name: "TopRadioCatalog",
             dependencies: [
                 "ZIPFoundation"
             ]
@@ -30,14 +37,28 @@ let package = Package(
             name: "RadioCatalogBuilder",
             dependencies: ["RadioCatalog"]
         ),
+        .executableTarget(
+            name: "TopRadioCatalogBuilder",
+            dependencies: [
+                "TopRadioCatalog",
+                .product(name: "SwiftSoup", package: "SwiftSoup")
+            ]
+        ),
         .testTarget(
             name: "RadioCatalogTests",
             dependencies: ["RadioCatalog"],
-            resources: [.process("Resources")] // Ensure this is present
+            resources: [.process("Resources")]
         ),
         .testTarget(
             name: "RadioCatalogIntegrationTests",
-            dependencies: ["RadioCatalog"],
+            dependencies: ["RadioCatalog"]
+        ),
+        .testTarget(
+            name: "TopRadioCatalogTests",
+            dependencies: [
+                "TopRadioCatalog",
+                .product(name: "ZIPFoundation", package: "ZIPFoundation")
+            ]
         )
     ]
 )
