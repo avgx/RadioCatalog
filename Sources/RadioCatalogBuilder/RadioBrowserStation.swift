@@ -8,7 +8,7 @@ public struct RadioBrowserStation: Codable {
 
     public let stationuuid: UUID
     public let name: String
-    public let url_resolved: URL?
+    public let url_resolved: String?
     public let homepage: String?
     public let favicon: String?
 

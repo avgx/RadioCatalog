@@ -11,7 +11,8 @@ extension RadioBrowserStation {
     /// в доменную модель Station.
     public func toStation() -> Station? {
 
-        guard let url_resolved else { return nil }
+        guard let url_resolved, !url_resolved.isEmpty else { return nil }
+        guard let url = URL(string: url_resolved) else { return nil }
 
         guard let codec else { return nil }
         guard codec.lowercased().contains("mp3") || codec.lowercased().contains("aac") else { return nil }
@@ -26,7 +27,7 @@ extension RadioBrowserStation {
         return Station(
             id: stationuuid,
             name: name,
-            url: url_resolved,
+            url: url,
             homepage: homepage.flatMap(URL.init),
             logo: favicon.flatMap(URL.init),
             countryCode: countrycode?.uppercased(),
