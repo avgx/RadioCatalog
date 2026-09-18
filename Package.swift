@@ -58,20 +58,6 @@ let package = Package(
             dependencies: [
                 "TopRadioCatalog",
                 .product(name: "ZIPFoundation", package: "ZIPFoundation")
-            ],
-            exclude: [
-                "cities.json",
-                "cityStations.json",
-                "countries.json",
-                "cstations.json",
-                "genres.json",
-                "links.json",
-                "rating.json",
-                "stations.json",
-                "streams.json",
-                "tr-stations.json",
-                "webStations.json",
-                "tr-stations.json"
             ]
         )
     ]
