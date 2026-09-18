@@ -1,0 +1,77 @@
+name: Build Top Radio Catalog
+
+on:
+  push:
+    branches: [ main ]
+  schedule:
+    - cron: "0 4 2 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 360
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app
+
+      - name: Build tool
+        run: swift build -c release --product topradiocatalog-builder
+
+      - name: Harvest catalog
+        run: .build/release/topradiocatalog-builder --out dumps all
+
+      - name: Zip result
+        run: zip -q tr-stations.zip tr-stations.json
+        working-directory: dumps
+
+      - name: Set date tag
+        run: |
+          echo "RELEASE_TAG=tr-$(date +'%Y%m')" >> $GITHUB_ENV
+
+      - name: Create tr-latest release
+        if: success()
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: tr-latest
+          name: tr-latest
+          files: dumps/tr-stations.zip
+          overwrite_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check if monthly tag exists
+        if: success()
+        id: check_tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create monthly release
+        if: success() && steps.check_tag.outputs.exists == 'false'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: ${{ env.RELEASE_TAG }}
+          files: dumps/tr-stations.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload harvest dumps
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: top-radio-dumps
+          path: dumps
+          if-no-files-found: ignore

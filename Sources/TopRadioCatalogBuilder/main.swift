@@ -1,42 +1,36 @@
 import Foundation
 
-URLSession.shared.configuration.requestCachePolicy = .returnCacheDataElseLoad
-URLSession.shared.configuration.urlCache = .shared
+enum TopRadioCatalogBuilderMain {
+    static func main() async {
+        var state: HarvestState?
+        do {
+            let cli = try CLI.parse(CommandLine.arguments)
+            let io = try HarvestIO(outDir: cli.outDir)
+            let harvest = HarvestState(io: io)
+            state = harvest
 
-//let ratingBuilder = RatingBuilder()
-//try await ratingBuilder.run()
-////try await ratingBuilder.save()
-//
-let genresBuilder = GenresBuilder()
-try await genresBuilder.run()
-////try await genresBuilder.save()
-//
-let countriesBuilder = CountriesBuilder()
-try await countriesBuilder.run()
-////try await countriesBuilder.save()
-//
-let citiesBuilder = CitiesBuilder()
-try await citiesBuilder.run(countries: countriesBuilder.countries)
-////try await citiesBuilder.save()
-//
-let stationsBuilder = StationsBuilder()
-try await stationsBuilder.run(genres: genresBuilder.genres)
-//try await stationsBuilder.run(countries: countriesBuilder.countries)
-//try await stationsBuilder.run(cities: citiesBuilder.cities)
-try await stationsBuilder.saveLinks()
+            let interrupt = InterruptGuard()
+            interrupt.install {
+                harvest.requestStop()
+                harvest.dumpAll()
+            }
 
-let streamsBuilder = StreamsBuilder()
-//try await streamsBuilder.run(urls: [
-//    URL(string: "https://top-radio.ru/web/nashe")!,
-//    URL(string: "https://top-radio.ru/rostov-na-donu/nashe")!,
-//    
-//    URL(string: "https://top-radio.ru/web/dorozhnoe")!,
-//    URL(string: "https://top-radio.ru/web/nostalgiya-dorozhnoe")!,
-//    URL(string: "https://top-radio.ru/web/dorozhnoe-rok-klub")!,
-//    URL(string: "https://top-radio.ru/moskva/dorozhnoe")!,
-//    URL(string: "https://top-radio.ru/petropavlovsk-kamchatskij/dorozhnoe")!,
-//])
-try await streamsBuilder.run(urls: Array(stationsBuilder.links.prefix(200)))
-try await streamsBuilder.save()
+            let runner = CommandRunner(state: harvest)
+            try await runner.run(cli.command)
+            print("Done")
+        } catch is CancellationError {
+            state?.dumpAll()
+            print("Stopped")
+            Foundation.exit(130)
+        } catch let error as CLIError {
+            fputs("Error: \(error)\n", stderr)
+            Foundation.exit(2)
+        } catch {
+            state?.dumpAll()
+            fputs("Error: \(error)\n", stderr)
+            Foundation.exit(1)
+        }
+    }
+}
 
-print("Done")
+await TopRadioCatalogBuilderMain.main()

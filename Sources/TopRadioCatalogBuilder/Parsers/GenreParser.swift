@@ -1,5 +1,6 @@
 import Foundation
 import SwiftSoup
+import TopRadioCatalog
 
 final class GenreParser {
     

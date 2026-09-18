@@ -1,5 +1,6 @@
 import Foundation
 import SwiftSoup
+import TopRadioCatalog
 
 final class GenreStationsParser {
     
@@ -32,9 +33,9 @@ final class GenreStationsParser {
                         slug: slug,
                         url: url,
                         title: title,
-                        genreSlug: genre.slug,
-                        countrySlug: "",
-                        id: nil
+                    genreSlug: genre.slug,
+                    countrySlug: nil,
+                    id: nil
                     )
                 )
             }

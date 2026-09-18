@@ -1,5 +1,6 @@
 import Foundation
 import SwiftSoup
+import TopRadioCatalog
 
 //пример https://top-radio.ru/rossiya там можно получить список городов и список станций.
 
@@ -92,7 +93,7 @@ private extension CountryPageParser {
                     slug: slug,
                     url: url,
                     title: title,
-                    genreSlug: "",
+                    genreSlug: nil,
                     countrySlug: country.slug,
                     id: id.isEmpty ? nil : id
                 )

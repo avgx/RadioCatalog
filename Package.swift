@@ -11,7 +11,8 @@ let package = Package(
         .macOS(.v14)
     ],
     products: [
-        .library( name: "RadioCatalog", targets: ["RadioCatalog"] ),
+        .library(name: "RadioCatalog", targets: ["RadioCatalog"]),
+        .library(name: "TopRadioCatalog", targets: ["TopRadioCatalog"]),
         .executable(name: "radiocatalog-builder", targets: ["RadioCatalogBuilder"]),
         .executable(name: "topradiocatalog-builder", targets: ["TopRadioCatalogBuilder"])
     ],
@@ -20,10 +21,14 @@ let package = Package(
         .package(url: "https://github.com/scinfu/SwiftSoup.git", from: "2.6.0")
     ],
     targets: [
-        // Targets are the basic building blocks of a package, defining a module or a test suite.
-        // Targets can depend on other targets in this package and products from dependencies.
         .target(
             name: "RadioCatalog",
+            dependencies: [
+                "ZIPFoundation"
+            ]
+        ),
+        .target(
+            name: "TopRadioCatalog",
             dependencies: [
                 "ZIPFoundation"
             ]
@@ -35,18 +40,39 @@ let package = Package(
         .executableTarget(
             name: "TopRadioCatalogBuilder",
             dependencies: [
-                "RadioCatalog",
+                "TopRadioCatalog",
                 .product(name: "SwiftSoup", package: "SwiftSoup")
             ]
         ),
         .testTarget(
             name: "RadioCatalogTests",
             dependencies: ["RadioCatalog"],
-            resources: [.process("Resources")] // Ensure this is present
+            resources: [.process("Resources")]
         ),
         .testTarget(
             name: "RadioCatalogIntegrationTests",
-            dependencies: ["RadioCatalog"],
+            dependencies: ["RadioCatalog"]
+        ),
+        .testTarget(
+            name: "TopRadioCatalogTests",
+            dependencies: [
+                "TopRadioCatalog",
+                .product(name: "ZIPFoundation", package: "ZIPFoundation")
+            ],
+            exclude: [
+                "cities.json",
+                "cityStations.json",
+                "countries.json",
+                "cstations.json",
+                "genres.json",
+                "links.json",
+                "rating.json",
+                "stations.json",
+                "streams.json",
+                "tr-stations.json",
+                "webStations.json",
+                "tr-stations.json"
+            ]
         )
     ]
 )

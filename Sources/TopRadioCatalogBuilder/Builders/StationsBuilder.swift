@@ -1,143 +1,169 @@
 import Foundation
+import TopRadioCatalog
 
 final class StationsBuilder {
-    
-    var cstations: [CityStationRef] = []
-    var stations: [StationRef] = []
-    var webStations: [WebStation] = []
-    var cityStations: [CityStation] = []
-    
-    var links: [URL] {
-        let x: [String] = [
-            cstations.map({ $0.url }),
-            stations.map({ $0.url }),
-            webStations.map({ $0.url.absoluteString }),
-            cityStations.map({ $0.url.absoluteString }),
-        ].flatMap({ $0 })
-        
-        
-        let xx = x
-            .reduce(into: Set(), { res, next in
-                res.insert(next)
-            })
-        
-        let xxx = Array(xx).sorted()
-        
-        let xxxx = xxx
-            .map({ URL(string: $0) })
-            .filter({ $0 != nil })
-            .map({ $0! })
-        
-        return xxxx
+    let state: HarvestState
+    private let flushEvery = 50
+    private var unsavedCount = 0
+
+    init(state: HarvestState) {
+        self.state = state
     }
-    
-    func saveLinks() async throws {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys, .prettyPrinted, .withoutEscapingSlashes]
-        
-        try (try encoder.encode(self.links)).write(to: URL(fileURLWithPath: "links.json"))
-        
-        print("links saved: \(links.count)")
-    }
-    
-    func run(genres: [Genre]) async throws {
+
+    func runWeb(genres: [Genre], countries: [Country]) async throws {
         for genre in genres {
+            if state.stopRequested { return }
             try await parseGenrePage(genre: genre)
         }
-    }
-    
-    func run(countries: [Country]) async throws {
         for country in countries {
+            if state.stopRequested { return }
             try await parseCountryPage(country: country)
         }
+        if unsavedCount > 0 {
+            try state.saveWeb()
+            unsavedCount = 0
+        }
     }
-    
-    func run(cities: [City]) async throws {
+
+    func runCity(cities: [City]) async throws {
         for city in cities {
+            if state.stopRequested { return }
             try await parseCityPage(city: city)
         }
-    }
-    
-    func parseGenrePage(genre: Genre) async throws {
-        print("-----------\nparseGenrePage \(genre)")
-        let url = URL(string: genre.url)!
-        let (data, _) = try await URLSession.shared.data(from: url)
-        let html = String(data: data, encoding: .utf8) ?? ""
-        
-        let cpp = GenreStationsParser()
-        let stations = cpp.parseStations(html: html, genre: genre)
-        print(stations.map({$0.description}).joined(separator: "\n"))
-        self.stations.append(contentsOf: stations)
-        
-//        for station in stations {
-//            try await parseStationPage(ref: station, genre: genre)
-//        }
-    }
-    
-    func parseCountryPage(country: Country) async throws {
-        print("-----------\nparseCountryPage \(country)")
-        let url = URL(string: country.url)!
-        let (data, _) = try await URLSession.shared.data(from: url)
-        let html = String(data: data, encoding: .utf8) ?? ""
-        
-        let cpp = CountryPageParser()
-        let (_, stations) = cpp.parse(html: html, country: country)
-//        print(stations.map({$0.description}).joined(separator: "\n"))
-        self.stations.append(contentsOf: stations)
-        
-//        for station in stations {
-//            try await parseStationPage(ref: station, country: country)
-//        }
-    }
-    
-    func parseStationPage(ref: StationRef, country: Country? = nil, genre: Genre? = nil) async throws {
-        print("-----------\nparseStationPage \(ref) \(country?.slug ?? "") \(genre?.slug ?? "")")
-        let url = URL(string: ref.url)!
-        let (data, _) = try await URLSession.shared.data(from: url)
-        let html = String(data: data, encoding: .utf8) ?? ""
-        
-        let sp = WebStationParser()
-        let station = sp.parseStation(html: html, fileURL: url)
-        print(station)
-        if let station {
-            self.webStations.append(station)
+        if unsavedCount > 0 {
+            try state.saveCity()
+            unsavedCount = 0
         }
     }
-    
-    func parseCityPage(city: City) async throws {
-        print("-----------\nparseCityPage \(city)")
-        let url = URL(string: city.url)!
-        let (data, _) = try await URLSession.shared.data(from: url)
-        let html = String(data: data, encoding: .utf8) ?? ""
-        
-        let cpp = CityPageParser()
-        let cityStations = cpp.parse(html: html, citySlug: city.slug)
-        print(cityStations.map({$0.description}).joined(separator: "\n"))
-        self.cstations.append(contentsOf: cityStations)
-        
-//        for station in cityStations {
-//            try await parseCityStationPage(ref: station, city: city)
-//        }
+
+    private func parseGenrePage(genre: Genre) async throws {
+        print("parseGenrePage \(genre.slug)")
+        guard let url = URL(string: genre.url) else { return }
+        let html: String
+        do {
+            html = try await HTMLFetcher.get(url)
+        } catch {
+            print("failed \(url): \(error)")
+            return
+        }
+
+        let stations = GenreStationsParser().parseStations(html: html, genre: genre)
+        state.appendStationRefs(stations)
+        for station in uniqueMissingWeb(stations) {
+            if state.stopRequested { return }
+            try await parseStationPage(ref: station)
+        }
     }
-    
-    func parseCityStationPage(ref: CityStationRef, city: City) async throws {
-        print("-----------\nparseCityStationPage \(ref) \(city.countrySlug) \(city.slug)")
-        
-        let url = URL(string: ref.url)!
-        let (data, _) = try await URLSession.shared.data(from: url)
-        let html = String(data: data, encoding: .utf8) ?? ""
-        
-        let parser = CityStationParser()
-        
-        if let station = parser.parseStation(
+
+    private func parseCountryPage(country: Country) async throws {
+        print("parseCountryPage \(country.slug)")
+        guard let url = URL(string: country.url) else { return }
+        let html: String
+        do {
+            html = try await HTMLFetcher.get(url)
+        } catch {
+            print("failed \(url): \(error)")
+            return
+        }
+
+        let (_, stations) = CountryPageParser().parse(html: html, country: country)
+        state.appendStationRefs(stations)
+        for station in uniqueMissingWeb(stations) {
+            if state.stopRequested { return }
+            try await parseStationPage(ref: station)
+        }
+    }
+
+    private func parseStationPage(ref: StationRef) async throws {
+        print("parseStationPage \(ref.slug)")
+        guard let url = URL(string: ref.url) else { return }
+        let html: String
+        do {
+            html = try await HTMLFetcher.get(url)
+        } catch {
+            print("failed \(url): \(error)")
+            return
+        }
+
+        guard let station = WebStationParser().parseStation(html: html, fileURL: url) else {
+            return
+        }
+        state.putWeb(station)
+        try flushWebIfNeeded()
+    }
+
+    private func parseCityPage(city: City) async throws {
+        print("parseCityPage \(city.slug)")
+        guard let url = URL(string: city.url) else { return }
+        let html: String
+        do {
+            html = try await HTMLFetcher.get(url)
+        } catch {
+            print("failed \(url): \(error)")
+            return
+        }
+
+        let cityStations = CityPageParser().parse(html: html, citySlug: city.slug)
+        state.appendCityRefs(cityStations)
+        for station in uniqueMissingCity(cityStations) {
+            if state.stopRequested { return }
+            try await parseCityStationPage(ref: station, city: city)
+        }
+    }
+
+    private func parseCityStationPage(ref: CityStationRef, city: City) async throws {
+        print("parseCityStationPage \(city.slug)/\(ref.stationSlug)")
+        guard let url = URL(string: ref.url) else { return }
+        let html: String
+        do {
+            html = try await HTMLFetcher.get(url)
+        } catch {
+            print("failed \(url): \(error)")
+            return
+        }
+
+        guard let station = CityStationParser().parseStation(
             html: html,
             fileURL: url,
             citySlug: city.slug,
-            countrySlug: city.countrySlug
-        ) {
-            print(station)
-            self.cityStations.append(station)
+            countrySlug: city.countrySlug,
+            frequency: ref.frequency
+        ) else {
+            return
+        }
+        state.putCity(station)
+        try flushCityIfNeeded()
+    }
+
+    private func uniqueMissingWeb(_ refs: [StationRef]) -> [StationRef] {
+        var seen = Set<String>()
+        var result: [StationRef] = []
+        for ref in refs {
+            if state.containsWeb(ref.slug) { continue }
+            if seen.insert(ref.slug).inserted {
+                result.append(ref)
+            }
+        }
+        return result
+    }
+
+    private func uniqueMissingCity(_ refs: [CityStationRef]) -> [CityStationRef] {
+        refs.filter { !state.containsCity(citySlug: $0.citySlug, slug: $0.stationSlug) }
+    }
+
+    private func flushWebIfNeeded() throws {
+        unsavedCount += 1
+        if unsavedCount >= flushEvery {
+            try state.saveWeb()
+            unsavedCount = 0
         }
     }
-    
+
+    private func flushCityIfNeeded() throws {
+        unsavedCount += 1
+        if unsavedCount >= flushEvery {
+            try state.saveCity()
+            unsavedCount = 0
+        }
+    }
 }

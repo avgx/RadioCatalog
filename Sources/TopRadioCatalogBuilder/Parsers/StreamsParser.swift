@@ -1,9 +1,10 @@
 import Foundation
+import TopRadioCatalog
 
 class StreamsParser {
     // MARK: - Streams
     
-    func extractStreams(_ html: String) -> [Stream] {
+    func extractStreams(_ html: String) -> [RadioStream] {
         let pattern = #"var STREAMS = '([^']*)';"#
         
         guard let raw = match(html, pattern), !raw.isEmpty else {
@@ -18,34 +19,13 @@ class StreamsParser {
         }
         
         do {
-            return try JSONDecoder().decode([Stream].self, from: data)
+            return try JSONDecoder().decode([RadioStream].self, from: data)
         } catch {
             print("❌ '\(cleaned)' | Streams decode error:", error)
             return []
         }
     }
-//
-//    func extractStreams(_ html: String) -> [Stream] {
-//        guard let raw = match(html, #"var STREAMS = '(.+?)';"#) else {
-//            return []
-//        }
-//        
-//        let cleaned = raw.replacingOccurrences(of: #"\\/"#, with: "/")
-//        
-//        guard let data = cleaned.data(using: .utf8),
-//              let json = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]
-//        else {
-//            return []
-//        }
-//        
-//        return json.map {
-//            Stream(
-//                bitrate: $0["bitrate"] as? String,
-//                url: $0["url"] as? String
-//            )
-//        }
-//    }
-    
+
     private func match(_ html: String, _ pattern: String) -> String? {
         let regex = try! NSRegularExpression(pattern: pattern, options: [.dotMatchesLineSeparators])
         

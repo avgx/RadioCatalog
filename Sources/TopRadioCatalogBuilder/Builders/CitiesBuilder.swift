@@ -1,30 +1,14 @@
 import Foundation
+import TopRadioCatalog
 
 final class CitiesBuilder {
-    var cities: [City] = []
-    
-    func run(countries: [Country]) async throws {
+    func run(countries: [Country]) async throws -> [City] {
+        var cities: [City] = []
         for country in countries {
-            try await parseCountryPage(country: country)
-        }        
-    }
-    
-    func save() async throws {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys, .prettyPrinted, .withoutEscapingSlashes]
-        
-        try (try encoder.encode(self.cities)).write(to: URL(fileURLWithPath: "cities.json"))
-        
-        print("Cities saved: \(cities.count)")
-    }
-    
-    func parseCountryPage(country: Country) async throws {
-        let html = try await country.html()
-        
-        let parser = CountryPageParser()
-        let (cities, _) = parser.parse(html: html, country: country)
-        self.cities.append(contentsOf: cities)
-        
-        
+            let html = try await HTMLFetcher.get(URL(string: country.url)!)
+            let (parsed, _) = CountryPageParser().parse(html: html, country: country)
+            cities.append(contentsOf: parsed)
+        }
+        return cities
     }
 }

@@ -1,5 +1,6 @@
 import Foundation
 import SwiftSoup
+import TopRadioCatalog
 
 // https://top-radio.ru/stranyi получаем список стран.
 
